@@ -7,7 +7,9 @@ import MenuAccordion from "../components/MenuAccordion";
 import Testimonials from "../components/Testimonials";
 import Footer from "../components/Footer";
 
+
 function Home() {
+
   const [carrito, setCarrito] = useState([]);
   const [carritoAbierto, setCarritoAbierto] = useState(false);
   const [checkout, setCheckout] = useState(false);
@@ -22,71 +24,105 @@ function Home() {
     referencia: "",
   });
 
+  const [metodoPago, setMetodoPago] = useState("");
+  const [pagaCon, setPagaCon] = useState("");
+
   const totalProductos = carrito.reduce(
     (total, item) => total + item.cantidad,
     0
   );
 
   const tiempoEstimado =
-    totalProductos <= 2 ? 25 :
-    totalProductos <= 4 ? 35 :
-    45;
+    totalProductos <= 2
+      ? 25
+      : totalProductos <= 4
+      ? 35
+      : 45;
 
   const datosCompletos =
     datos.nombre.trim() !== "" &&
-    datos.direccion.trim() !== "" &&
-    datos.telefono.trim() !== "";
+    datos.telefono.trim() !== "" &&
+    datos.direccion.trim() !== "";
 
   useEffect(() => {
+
     if (pedidoConfirmado) {
+
       const timer = setTimeout(() => {
         setPedidoConfirmado(false);
       }, 3000);
 
       return () => clearTimeout(timer);
+
     }
+
   }, [pedidoConfirmado]);
 
   const aumentarCantidad = (nombre) => {
+
     setCarrito(
       carrito.map((item) =>
         item.nombre === nombre
-          ? { ...item, cantidad: item.cantidad + 1 }
+          ? {
+              ...item,
+              cantidad: item.cantidad + 1,
+            }
           : item
       )
     );
+
   };
 
   const disminuirCantidad = (nombre) => {
+
     const nuevoCarrito = carrito
       .map((item) =>
         item.nombre === nombre
-          ? { ...item, cantidad: item.cantidad - 1 }
+          ? {
+              ...item,
+              cantidad: item.cantidad - 1,
+            }
           : item
       )
       .filter((item) => item.cantidad > 0);
 
     setCarrito(nuevoCarrito);
+
   };
 
   const eliminarProducto = (nombre) => {
+
     setCarrito(
-      carrito.filter((item) => item.nombre !== nombre)
+      carrito.filter(
+        (item) => item.nombre !== nombre
+      )
     );
+
   };
 
-  const confirmarPedido = () => {
-    console.log({
+  const confirmarPedido = async () => {
+
+    const pedido = {
       carrito,
       datos,
+      metodoPago,
+      pagaCon:
+        metodoPago === "Efectivo"
+          ? pagaCon
+          : "",
       tiempoEstimado,
-    });
+    };
+
+    console.log(pedido);
 
     setPedidoConfirmado(true);
 
     setCarrito([]);
     setCheckout(false);
     setCarritoAbierto(false);
+
+    setMetodoPago("");
+    setPagaCon("");
 
     setDatos({
       nombre: "",
@@ -95,6 +131,7 @@ function Home() {
       departamento: "",
       referencia: "",
     });
+
   };
 
   return (
@@ -105,6 +142,7 @@ function Home() {
       />
 
       <main>
+
         <HeroLanding />
 
         <MenuCards />
@@ -138,10 +176,8 @@ function Home() {
             ✅ Pedido confirmado correctamente
           </div>
         )}
-
-        {/* CARRITO */}
-
-        {carritoAbierto && !checkout && (
+        
+                {carritoAbierto && !checkout && (
           <div
             style={{
               position: "fixed",
@@ -180,11 +216,10 @@ function Home() {
                   </small>
 
                   <div className="d-flex justify-content-center align-items-center gap-2 mb-2">
+
                     <button
-                      className="btn btn-outline-danger btn-sm px-2"
-                      onClick={() =>
-                        disminuirCantidad(item.nombre)
-                      }
+                      className="btn btn-outline-danger btn-sm"
+                      onClick={() => disminuirCantidad(item.nombre)}
                     >
                       −
                     </button>
@@ -194,47 +229,50 @@ function Home() {
                     </span>
 
                     <button
-                      className="btn btn-outline-success btn-sm px-2"
-                      onClick={() =>
-                        aumentarCantidad(item.nombre)
-                      }
+                      className="btn btn-outline-success btn-sm"
+                      onClick={() => aumentarCantidad(item.nombre)}
                     >
                       +
                     </button>
+
                   </div>
 
                   <button
-                    className="btn btn-danger btn-sm w-100 py-1"
-                    onClick={() =>
-                      eliminarProducto(item.nombre)
-                    }
+                    className="btn btn-danger btn-sm w-100"
+                    onClick={() => eliminarProducto(item.nombre)}
                   >
                     Eliminar
                   </button>
+
                 </div>
               ))
             )}
 
-            <button
-              className="btn btn-success w-100 mt-2"
-              onClick={() => setCheckout(true)}
-              disabled={carrito.length === 0}
-            >
-              Terminar pedido
-            </button>
+            <div className="border-top pt-2">
 
-            <button
-              className="btn btn-secondary w-100 mt-2"
-              onClick={() =>
-                setCarritoAbierto(false)
-              }
-            >
-              Cerrar
-            </button>
+              <p className="mb-2 text-center">
+                <strong>Total de productos:</strong> {totalProductos}
+              </p>
+
+              <button
+                className="btn btn-success w-100"
+                onClick={() => setCheckout(true)}
+                disabled={carrito.length === 0}
+              >
+                Terminar pedido
+              </button>
+
+              <button
+                className="btn btn-secondary w-100 mt-2"
+                onClick={() => setCarritoAbierto(false)}
+              >
+                Cerrar
+              </button>
+
+            </div>
+
           </div>
         )}
-
-        {/* CHECKOUT */}
 
         {carritoAbierto && checkout && (
           <div
@@ -318,26 +356,75 @@ function Home() {
             />
 
             <hr />
+                        <h6 className="mb-2">
+              💳 Forma de pago
+            </h6>
+
+            <div className="form-check">
+              <input
+                className="form-check-input"
+                type="radio"
+                id="tarjeta"
+                name="metodoPago"
+                value="Tarjeta"
+                checked={metodoPago === "Tarjeta"}
+                onChange={(e) =>
+                  setMetodoPago(e.target.value)
+                }
+              />
+
+              <label
+                className="form-check-label"
+                htmlFor="tarjeta"
+              >
+                Tarjeta
+              </label>
+            </div>
+
+            <div className="form-check mb-3">
+              <input
+                className="form-check-input"
+                type="radio"
+                id="efectivo"
+                name="metodoPago"
+                value="Efectivo"
+                checked={metodoPago === "Efectivo"}
+                onChange={(e) =>
+                  setMetodoPago(e.target.value)
+                }
+              />
+
+              <label
+                className="form-check-label"
+                htmlFor="efectivo"
+              >
+                Efectivo
+              </label>
+            </div>
+
+            <hr />
 
             <p className="small mb-1">
-              <strong>Productos:</strong>{" "}
-              {totalProductos}
+              <strong>Productos:</strong> {totalProductos}
             </p>
 
             <p className="small mb-1">
-              <strong>Tiempo estimado de preparacion:</strong>{" "}
+              <strong>Tiempo estimado de preparación:</strong>{" "}
               {tiempoEstimado} minutos
             </p>
 
-            <p className="small text-muted mb-3">
-              Tu pedido comenzará a prepararse
-              una vez confirmado.
+            <p className="small mb-3">
+              <strong>Método de pago:</strong>{" "}
+              {metodoPago || "No seleccionado"}
             </p>
 
             <button
               className="btn btn-success w-100"
               onClick={confirmarPedido}
-              disabled={!datosCompletos}
+              disabled={
+                !datosCompletos ||
+                metodoPago === ""
+              }
             >
               Confirmar pedido
             </button>
@@ -348,8 +435,10 @@ function Home() {
             >
               Volver
             </button>
+
           </div>
         )}
+
       </main>
     </>
   );
