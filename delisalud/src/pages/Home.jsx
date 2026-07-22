@@ -8,7 +8,6 @@ import Testimonials from "../components/Testimonials";
 import Footer from "../components/Footer";
 
 function Home() {
-
   const [carrito, setCarrito] = useState([]);
   const [carritoAbierto, setCarritoAbierto] = useState(false);
   const [checkout, setCheckout] = useState(false);
@@ -18,22 +17,26 @@ function Home() {
   const [datos, setDatos] = useState({
     nombre: "",
     direccion: "",
-    telefono: ""
+    telefono: "",
+    departamento: "",
+    referencia: "",
   });
 
-  
+  const totalProductos = carrito.reduce(
+    (total, item) => total + item.cantidad,
+    0
+  );
+
   const tiempoEstimado =
-    carrito.length <= 2 ? 25 :
-    carrito.length <= 4 ? 35 :
+    totalProductos <= 2 ? 25 :
+    totalProductos <= 4 ? 35 :
     45;
 
-  
   const datosCompletos =
     datos.nombre.trim() !== "" &&
     datos.direccion.trim() !== "" &&
     datos.telefono.trim() !== "";
 
-  
   useEffect(() => {
     if (pedidoConfirmado) {
       const timer = setTimeout(() => {
@@ -44,11 +47,39 @@ function Home() {
     }
   }, [pedidoConfirmado]);
 
+  const aumentarCantidad = (nombre) => {
+    setCarrito(
+      carrito.map((item) =>
+        item.nombre === nombre
+          ? { ...item, cantidad: item.cantidad + 1 }
+          : item
+      )
+    );
+  };
+
+  const disminuirCantidad = (nombre) => {
+    const nuevoCarrito = carrito
+      .map((item) =>
+        item.nombre === nombre
+          ? { ...item, cantidad: item.cantidad - 1 }
+          : item
+      )
+      .filter((item) => item.cantidad > 0);
+
+    setCarrito(nuevoCarrito);
+  };
+
+  const eliminarProducto = (nombre) => {
+    setCarrito(
+      carrito.filter((item) => item.nombre !== nombre)
+    );
+  };
+
   const confirmarPedido = () => {
-    console.log("📦 PEDIDO FINAL:", {
+    console.log({
       carrito,
       datos,
-      tiempoEstimado
+      tiempoEstimado,
     });
 
     setPedidoConfirmado(true);
@@ -60,7 +91,9 @@ function Home() {
     setDatos({
       nombre: "",
       direccion: "",
-      telefono: ""
+      telefono: "",
+      departamento: "",
+      referencia: "",
     });
   };
 
@@ -72,8 +105,8 @@ function Home() {
       />
 
       <main>
-
         <HeroLanding />
+
         <MenuCards />
 
         <MenuAccordion
@@ -88,7 +121,6 @@ function Home() {
           setCarritoAbierto={setCarritoAbierto}
         />
 
-        
         {pedidoConfirmado && (
           <div
             style={{
@@ -98,43 +130,93 @@ function Home() {
               background: "#198754",
               color: "white",
               padding: "12px 16px",
-              borderRadius: "8px",
+              borderRadius: "10px",
               zIndex: 9999,
-              boxShadow: "0 0 10px rgba(0,0,0,0.2)"
+              boxShadow: "0 5px 15px rgba(0,0,0,.2)",
             }}
           >
             ✅ Pedido confirmado correctamente
           </div>
         )}
 
-        
+        {/* CARRITO */}
+
         {carritoAbierto && !checkout && (
           <div
             style={{
               position: "fixed",
-              top: "80px",
-              right: "20px",
-              width: "320px",
-              background: "white",
-              padding: "15px",
-              boxShadow: "0 0 10px rgba(0,0,0,0.2)",
-              zIndex: 9999
+              top: "75px",
+              right: "15px",
+              width: "300px",
+              maxHeight: "75vh",
+              overflowY: "auto",
+              background: "#fff",
+              padding: "12px",
+              borderRadius: "12px",
+              boxShadow: "0 8px 20px rgba(0,0,0,.2)",
+              zIndex: 9999,
             }}
           >
-            <h4>🛒 Tu pedido</h4>
+            <h5 className="fw-bold text-center mb-3">
+              🛒 Tu pedido
+            </h5>
 
             {carrito.length === 0 ? (
-              <p>Vacío</p>
+              <p className="text-center text-muted">
+                Tu carrito está vacío
+              </p>
             ) : (
-              carrito.map((item, index) => (
-                <div key={index}>
-                  🍽️ {item.nombre} - {item.precio}
+              carrito.map((item) => (
+                <div
+                  key={item.nombre}
+                  className="border rounded p-2 mb-2"
+                >
+                  <h6 className="mb-1 fs-6">
+                    {item.nombre}
+                  </h6>
+
+                  <small className="text-success fw-bold d-block mb-2">
+                    {item.precio}
+                  </small>
+
+                  <div className="d-flex justify-content-center align-items-center gap-2 mb-2">
+                    <button
+                      className="btn btn-outline-danger btn-sm px-2"
+                      onClick={() =>
+                        disminuirCantidad(item.nombre)
+                      }
+                    >
+                      −
+                    </button>
+
+                    <span className="fw-bold">
+                      x{item.cantidad}
+                    </span>
+
+                    <button
+                      className="btn btn-outline-success btn-sm px-2"
+                      onClick={() =>
+                        aumentarCantidad(item.nombre)
+                      }
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  <button
+                    className="btn btn-danger btn-sm w-100 py-1"
+                    onClick={() =>
+                      eliminarProducto(item.nombre)
+                    }
+                  >
+                    Eliminar
+                  </button>
                 </div>
               ))
             )}
 
             <button
-              className="btn btn-success w-100 mt-3"
+              className="btn btn-success w-100 mt-2"
               onClick={() => setCheckout(true)}
               disabled={carrito.length === 0}
             >
@@ -142,67 +224,120 @@ function Home() {
             </button>
 
             <button
-              className="btn btn-danger w-100 mt-2"
-              onClick={() => setCarritoAbierto(false)}
+              className="btn btn-secondary w-100 mt-2"
+              onClick={() =>
+                setCarritoAbierto(false)
+              }
             >
               Cerrar
             </button>
           </div>
         )}
 
-        
+        {/* CHECKOUT */}
+
         {carritoAbierto && checkout && (
           <div
             style={{
               position: "fixed",
-              top: "80px",
-              right: "20px",
+              top: "75px",
+              right: "15px",
               width: "320px",
-              background: "white",
+              maxHeight: "75vh",
+              overflowY: "auto",
+              background: "#fff",
               padding: "15px",
-              boxShadow: "0 0 10px rgba(0,0,0,0.2)",
-              zIndex: 9999
+              borderRadius: "12px",
+              boxShadow: "0 8px 20px rgba(0,0,0,.2)",
+              zIndex: 9999,
             }}
           >
-            <h4>📦 Datos de entrega</h4>
+            <h5 className="text-center mb-3">
+              📦 Datos de entrega
+            </h5>
 
             <input
-              className="form-control my-2"
-              placeholder="Nombre"
+              className="form-control form-control-sm mb-2"
+              placeholder="Nombre completo"
               value={datos.nombre}
               onChange={(e) =>
-                setDatos({ ...datos, nombre: e.target.value })
+                setDatos({
+                  ...datos,
+                  nombre: e.target.value,
+                })
               }
             />
 
             <input
-              className="form-control my-2"
-              placeholder="Dirección"
-              value={datos.direccion}
-              onChange={(e) =>
-                setDatos({ ...datos, direccion: e.target.value })
-              }
-            />
-
-            <input
-              className="form-control my-2"
+              className="form-control form-control-sm mb-2"
               placeholder="Teléfono"
               value={datos.telefono}
               onChange={(e) =>
-                setDatos({ ...datos, telefono: e.target.value })
+                setDatos({
+                  ...datos,
+                  telefono: e.target.value,
+                })
               }
             />
 
-           
-            {datosCompletos && (
-              <p className="mt-2 text-muted">
-                ⏱️ Tiempo estimado de entrega: {tiempoEstimado} minutos
-              </p>
-            )}
+            <input
+              className="form-control form-control-sm mb-2"
+              placeholder="Dirección"
+              value={datos.direccion}
+              onChange={(e) =>
+                setDatos({
+                  ...datos,
+                  direccion: e.target.value,
+                })
+              }
+            />
+
+            <input
+              className="form-control form-control-sm mb-2"
+              placeholder="Departamento (Opcional)"
+              value={datos.departamento}
+              onChange={(e) =>
+                setDatos({
+                  ...datos,
+                  departamento: e.target.value,
+                })
+              }
+            />
+
+            <textarea
+              className="form-control form-control-sm"
+              rows="2"
+              placeholder="Referencia del domicilio (Opcional)"
+              value={datos.referencia}
+              onChange={(e) =>
+                setDatos({
+                  ...datos,
+                  referencia: e.target.value,
+                })
+              }
+            />
+
+            <hr />
+
+            <p className="small mb-1">
+              <strong>Productos:</strong>{" "}
+              {totalProductos}
+            </p>
+
+            <p className="small mb-1">
+              <strong>Tiempo estimado de preparacion:</strong>{" "}
+              {tiempoEstimado} minutos
+            </p>
+
+            <p className="small text-muted mb-3">
+              Tu pedido comenzará a prepararse
+              una vez confirmado.
+            </p>
 
             <button
-              className="btn btn-primary w-100 mt-2"
+              className="btn btn-success w-100"
               onClick={confirmarPedido}
+              disabled={!datosCompletos}
             >
               Confirmar pedido
             </button>
@@ -215,7 +350,6 @@ function Home() {
             </button>
           </div>
         )}
-
       </main>
     </>
   );

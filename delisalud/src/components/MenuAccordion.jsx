@@ -28,7 +28,33 @@ function MenuAccordion({ carrito, setCarrito }) {
   ];
 
   const agregarAlCarrito = (plato) => {
-    setCarrito([...carrito, plato]);
+
+    const existe = carrito.find(
+      (item) => item.nombre === plato.nombre
+    );
+
+    if (existe) {
+
+      const nuevoCarrito = carrito.map((item) =>
+        item.nombre === plato.nombre
+          ? { ...item, cantidad: item.cantidad + 1 }
+          : item
+      );
+
+      setCarrito(nuevoCarrito);
+
+    } else {
+
+      setCarrito([
+        ...carrito,
+        {
+          ...plato,
+          cantidad: 1
+        }
+      ]);
+
+    }
+
   };
 
   return (
