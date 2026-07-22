@@ -1,0 +1,24 @@
+#contacto{
+
+    background-color: #f8f9fa;
+
+}
+
+#contacto h2{
+
+    color: #198754;
+
+}
+
+#contacto .card{
+
+    border: none;
+    border-radius: 15px;
+
+}
+
+#contacto textarea{
+
+    resize: none;
+
+}
