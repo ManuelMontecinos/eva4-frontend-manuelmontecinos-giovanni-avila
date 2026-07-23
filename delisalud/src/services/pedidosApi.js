@@ -1,5 +1,41 @@
 const API_URL = "https://apiclases.inacode.cl/pedidos";
 
+const convertirPrecio = (precio) => {
+  const numero = Number(String(precio ?? "").replace(/\D/g, ""));
+  return Number.isFinite(numero) ? numero : 0;
+};
+
+export const construirPayloadPedido = ({
+  carrito,
+  datos,
+  metodoPago,
+  pagaCon,
+  tiempoEstimado,
+  estado = "pendiente",
+}) => {
+  const items = (carrito || []).map((item) => ({
+    producto: item.nombre,
+    cantidad: Number(item.cantidad ?? 1),
+    precio: convertirPrecio(item.precio),
+  }));
+
+  const monto = items.reduce((total, item) => total + item.precio * item.cantidad, 0);
+
+  return {
+    cliente: datos?.nombre || "Sin nombre",
+    email: datos?.email || "",
+    telefono: datos?.telefono || "",
+    direccion: datos?.direccion || "",
+    monto,
+    estado,
+    fecha: new Date().toISOString().split("T")[0],
+    metodoPago: String(metodoPago || "efectivo").toLowerCase(),
+    items,
+    pagaCon: pagaCon || "",
+    tiempoEstimado,
+  };
+};
+
 export const obtenerPedidos = async () => {
   try {
     const respuesta = await fetch(API_URL);
@@ -60,15 +96,17 @@ export const actualizarPedido = async (id, pedidoActualizado) => {
       },
       body: JSON.stringify(pedidoActualizado),
     });
+    const data = await respuesta.json().catch(() => null);
 
     if (!respuesta.ok) {
-      throw new Error("No se pudo actualizar el pedido.");
+      console.error("API actualizarPedido falló:", data || respuesta.status);
+      return data || { error: `HTTP ${respuesta.status}` };
     }
 
-    return await respuesta.json();
+    return data;
   } catch (error) {
     console.error("Error al actualizar el pedido:", error);
-    throw error;
+    return { error: String(error) };
   }
 };
 
@@ -77,14 +115,16 @@ export const eliminarPedido = async (id) => {
     const respuesta = await fetch(`${API_URL}/${id}`, {
       method: "DELETE",
     });
+    const data = await respuesta.json().catch(() => null);
 
     if (!respuesta.ok) {
-      throw new Error("No se pudo eliminar el pedido.");
+      console.error("API eliminarPedido falló:", data || respuesta.status);
+      return data || { error: `HTTP ${respuesta.status}` };
     }
 
-    return await respuesta.json();
+    return data;
   } catch (error) {
     console.error("Error al eliminar el pedido:", error);
-    throw error;
+    return { error: String(error) };
   }
 };

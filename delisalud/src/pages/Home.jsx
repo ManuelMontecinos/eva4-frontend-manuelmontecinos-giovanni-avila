@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import Navbar from "../components/Navbar";
 import HeroLanding from "../components/HeroLanding";
@@ -6,60 +7,53 @@ import MenuCards from "../components/MenuCards";
 import MenuAccordion from "../components/MenuAccordion";
 import Testimonials from "../components/Testimonials";
 import Footer from "../components/Footer";
-
+import { actualizarPedido, construirPayloadPedido, crearPedido } from "../services/pedidosApi";
 
 function Home() {
+  const navigate = useNavigate();
 
   const [carrito, setCarrito] = useState([]);
   const [carritoAbierto, setCarritoAbierto] = useState(false);
   const [checkout, setCheckout] = useState(false);
-
   const [pedidoConfirmado, setPedidoConfirmado] = useState(false);
+  const [pedidoEnviando, setPedidoEnviando] = useState(false);
+  const [pedidoError, setPedidoError] = useState("");
+  const [ultimoPedido, setUltimoPedido] = useState(null);
 
-  const [datos, setDatos] = useState({
+  const crearDatosIniciales = () => ({
     nombre: "",
+    email: "",
     direccion: "",
     telefono: "",
     departamento: "",
     referencia: "",
   });
 
+  const [datos, setDatos] = useState(crearDatosIniciales);
   const [metodoPago, setMetodoPago] = useState("");
   const [pagaCon, setPagaCon] = useState("");
 
-  const totalProductos = carrito.reduce(
-    (total, item) => total + item.cantidad,
-    0
-  );
+  const totalProductos = carrito.reduce((total, item) => total + item.cantidad, 0);
 
-  const tiempoEstimado =
-    totalProductos <= 2
-      ? 25
-      : totalProductos <= 4
-      ? 35
-      : 45;
+  const tiempoEstimado = totalProductos <= 2 ? 25 : totalProductos <= 4 ? 35 : 45;
 
   const datosCompletos =
     datos.nombre.trim() !== "" &&
+    datos.email.trim() !== "" &&
     datos.telefono.trim() !== "" &&
     datos.direccion.trim() !== "";
 
   useEffect(() => {
-
     if (pedidoConfirmado) {
-
       const timer = setTimeout(() => {
         setPedidoConfirmado(false);
-      }, 3000);
+      }, 4000);
 
       return () => clearTimeout(timer);
-
     }
-
   }, [pedidoConfirmado]);
 
   const aumentarCantidad = (nombre) => {
-
     setCarrito(
       carrito.map((item) =>
         item.nombre === nombre
@@ -70,11 +64,9 @@ function Home() {
           : item
       )
     );
-
   };
 
   const disminuirCantidad = (nombre) => {
-
     const nuevoCarrito = carrito
       .map((item) =>
         item.nombre === nombre
@@ -87,77 +79,84 @@ function Home() {
       .filter((item) => item.cantidad > 0);
 
     setCarrito(nuevoCarrito);
-
   };
 
   const eliminarProducto = (nombre) => {
-
-    setCarrito(
-      carrito.filter(
-        (item) => item.nombre !== nombre
-      )
-    );
-
+    setCarrito(carrito.filter((item) => item.nombre !== nombre));
   };
 
   const confirmarPedido = async () => {
+    if (carrito.length === 0) {
+      return;
+    }
 
-    const pedido = {
-      carrito,
-      datos,
-      metodoPago,
-      pagaCon:
-        metodoPago === "Efectivo"
-          ? pagaCon
-          : "",
-      tiempoEstimado,
-    };
+    setPedidoEnviando(true);
+    setPedidoError("");
 
-    console.log(pedido);
+    try {
+      const pedido = construirPayloadPedido({
+        carrito,
+        datos,
+        metodoPago,
+        pagaCon: metodoPago === "Efectivo" ? pagaCon : "",
+        tiempoEstimado,
+      });
 
-    setPedidoConfirmado(true);
+      const respuesta = await crearPedido(pedido);
+      const pedidoId = respuesta?.insertedId || respuesta?.id || "";
 
-    setCarrito([]);
-    setCheckout(false);
-    setCarritoAbierto(false);
-
-    setMetodoPago("");
-    setPagaCon("");
-
-    setDatos({
-      nombre: "",
-      direccion: "",
-      telefono: "",
-      departamento: "",
-      referencia: "",
-    });
-
+      setUltimoPedido({ id: pedidoId, payload: pedido });
+      setPedidoConfirmado(true);
+      setCarrito([]);
+      setCheckout(false);
+      setCarritoAbierto(false);
+      setMetodoPago("");
+      setPagaCon("");
+      setDatos(crearDatosIniciales());
+    } catch (error) {
+      console.error(error);
+      setPedidoError("No se pudo confirmar el pedido. Intenta nuevamente.");
+    } finally {
+      setPedidoEnviando(false);
+    }
   };
+
+  const cancelarUltimoPedido = async () => {
+    if (!ultimoPedido?.id) {
+      return;
+    }
+
+    try {
+      const pedidoCancelado = {
+        ...ultimoPedido.payload,
+        estado: "cancelado",
+        fecha: new Date().toISOString().split("T")[0],
+      };
+
+      await actualizarPedido(ultimoPedido.id, pedidoCancelado);
+      setUltimoPedido({ ...ultimoPedido, payload: pedidoCancelado });
+      setPedidoConfirmado(true);
+      setPedidoError("");
+    } catch (error) {
+      console.error(error);
+      setPedidoError("No se pudo cancelar el pedido.");
+    }
+  };
+
+  const estadoPedidoTexto = ultimoPedido?.payload?.estado === "cancelado"
+    ? "Pedido cancelado correctamente"
+    : "Pedido confirmado correctamente";
 
   return (
     <>
-      <Navbar
-        carrito={carrito}
-        setCarritoAbierto={setCarritoAbierto}
-      />
+      <Navbar carrito={carrito} setCarritoAbierto={setCarritoAbierto} />
 
       <main>
-
         <HeroLanding />
-
         <MenuCards />
-
-        <MenuAccordion
-          carrito={carrito}
-          setCarrito={setCarrito}
-        />
-
+        <MenuAccordion carrito={carrito} setCarrito={setCarrito} />
         <Testimonials />
-
-        <Footer
-          carrito={carrito}
-          setCarritoAbierto={setCarritoAbierto}
-        />
+        <Footer carrito={carrito} setCarritoAbierto={setCarritoAbierto} />
 
         {pedidoConfirmado && (
           <div
@@ -173,11 +172,36 @@ function Home() {
               boxShadow: "0 5px 15px rgba(0,0,0,.2)",
             }}
           >
-            ✅ Pedido confirmado correctamente
+            <div>✅ {estadoPedidoTexto}</div>
+            {ultimoPedido?.id && (
+              <div className="small mt-1">ID: {ultimoPedido.id}</div>
+            )}
+            <div className="d-flex gap-2 mt-2 flex-wrap">
+              <button
+                className="btn btn-light btn-sm"
+                onClick={() => navigate("/ver-pedidos")}
+              >
+                Gestionar pedidos
+              </button>
+              {ultimoPedido?.id && ultimoPedido.payload?.estado !== "cancelado" && (
+                <button
+                  className="btn btn-outline-light btn-sm"
+                  onClick={cancelarUltimoPedido}
+                >
+                  Cancelar pedido
+                </button>
+              )}
+            </div>
           </div>
         )}
-        
-                {carritoAbierto && !checkout && (
+
+        {pedidoError && (
+          <div className="alert alert-danger mx-3 mt-3" role="alert">
+            {pedidoError}
+          </div>
+        )}
+
+        {carritoAbierto && !checkout && (
           <div
             style={{
               position: "fixed",
@@ -193,30 +217,17 @@ function Home() {
               zIndex: 9999,
             }}
           >
-            <h5 className="fw-bold text-center mb-3">
-              🛒 Tu pedido
-            </h5>
+            <h5 className="fw-bold text-center mb-3">🛒 Tu pedido</h5>
 
             {carrito.length === 0 ? (
-              <p className="text-center text-muted">
-                Tu carrito está vacío
-              </p>
+              <p className="text-center text-muted">Tu carrito está vacío</p>
             ) : (
               carrito.map((item) => (
-                <div
-                  key={item.nombre}
-                  className="border rounded p-2 mb-2"
-                >
-                  <h6 className="mb-1 fs-6">
-                    {item.nombre}
-                  </h6>
-
-                  <small className="text-success fw-bold d-block mb-2">
-                    {item.precio}
-                  </small>
+                <div key={item.nombre} className="border rounded p-2 mb-2">
+                  <h6 className="mb-1 fs-6">{item.nombre}</h6>
+                  <small className="text-success fw-bold d-block mb-2">{item.precio}</small>
 
                   <div className="d-flex justify-content-center align-items-center gap-2 mb-2">
-
                     <button
                       className="btn btn-outline-danger btn-sm"
                       onClick={() => disminuirCantidad(item.nombre)}
@@ -224,9 +235,7 @@ function Home() {
                       −
                     </button>
 
-                    <span className="fw-bold">
-                      x{item.cantidad}
-                    </span>
+                    <span className="fw-bold">x{item.cantidad}</span>
 
                     <button
                       className="btn btn-outline-success btn-sm"
@@ -234,7 +243,6 @@ function Home() {
                     >
                       +
                     </button>
-
                   </div>
 
                   <button
@@ -243,13 +251,11 @@ function Home() {
                   >
                     Eliminar
                   </button>
-
                 </div>
               ))
             )}
 
             <div className="border-top pt-2">
-
               <p className="mb-2 text-center">
                 <strong>Total de productos:</strong> {totalProductos}
               </p>
@@ -268,9 +274,7 @@ function Home() {
               >
                 Cerrar
               </button>
-
             </div>
-
           </div>
         )}
 
@@ -290,9 +294,7 @@ function Home() {
               zIndex: 9999,
             }}
           >
-            <h5 className="text-center mb-3">
-              📦 Datos de entrega
-            </h5>
+            <h5 className="text-center mb-3">📦 Datos de entrega</h5>
 
             <input
               className="form-control form-control-sm mb-2"
@@ -302,6 +304,18 @@ function Home() {
                 setDatos({
                   ...datos,
                   nombre: e.target.value,
+                })
+              }
+            />
+
+            <input
+              className="form-control form-control-sm mb-2"
+              placeholder="Correo electrónico"
+              value={datos.email}
+              onChange={(e) =>
+                setDatos({
+                  ...datos,
+                  email: e.target.value,
                 })
               }
             />
@@ -356,9 +370,7 @@ function Home() {
             />
 
             <hr />
-                        <h6 className="mb-2">
-              💳 Forma de pago
-            </h6>
+            <h6 className="mb-2">💳 Forma de pago</h6>
 
             <div className="form-check">
               <input
@@ -368,15 +380,10 @@ function Home() {
                 name="metodoPago"
                 value="Tarjeta"
                 checked={metodoPago === "Tarjeta"}
-                onChange={(e) =>
-                  setMetodoPago(e.target.value)
-                }
+                onChange={(e) => setMetodoPago(e.target.value)}
               />
 
-              <label
-                className="form-check-label"
-                htmlFor="tarjeta"
-              >
+              <label className="form-check-label" htmlFor="tarjeta">
                 Tarjeta
               </label>
             </div>
@@ -389,18 +396,22 @@ function Home() {
                 name="metodoPago"
                 value="Efectivo"
                 checked={metodoPago === "Efectivo"}
-                onChange={(e) =>
-                  setMetodoPago(e.target.value)
-                }
+                onChange={(e) => setMetodoPago(e.target.value)}
               />
 
-              <label
-                className="form-check-label"
-                htmlFor="efectivo"
-              >
+              <label className="form-check-label" htmlFor="efectivo">
                 Efectivo
               </label>
             </div>
+
+            {metodoPago === "Efectivo" && (
+              <input
+                className="form-control form-control-sm mb-3"
+                placeholder="¿Con cuánto paga?"
+                value={pagaCon}
+                onChange={(e) => setPagaCon(e.target.value)}
+              />
+            )}
 
             <hr />
 
@@ -409,24 +420,19 @@ function Home() {
             </p>
 
             <p className="small mb-1">
-              <strong>Tiempo estimado de preparación:</strong>{" "}
-              {tiempoEstimado} minutos
+              <strong>Tiempo estimado de preparación:</strong> {tiempoEstimado} minutos
             </p>
 
             <p className="small mb-3">
-              <strong>Método de pago:</strong>{" "}
-              {metodoPago || "No seleccionado"}
+              <strong>Método de pago:</strong> {metodoPago || "No seleccionado"}
             </p>
 
             <button
               className="btn btn-success w-100"
               onClick={confirmarPedido}
-              disabled={
-                !datosCompletos ||
-                metodoPago === ""
-              }
+              disabled={!datosCompletos || metodoPago === "" || pedidoEnviando}
             >
-              Confirmar pedido
+              {pedidoEnviando ? "Enviando..." : "Confirmar pedido"}
             </button>
 
             <button
@@ -435,10 +441,8 @@ function Home() {
             >
               Volver
             </button>
-
           </div>
         )}
-
       </main>
     </>
   );
