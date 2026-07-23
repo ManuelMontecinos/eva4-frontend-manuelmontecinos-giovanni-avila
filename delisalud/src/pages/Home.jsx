@@ -18,6 +18,7 @@ function Home() {
   const [pedidoConfirmado, setPedidoConfirmado] = useState(false);
   const [pedidoEnviando, setPedidoEnviando] = useState(false);
   const [pedidoError, setPedidoError] = useState("");
+  const [estadoPedidoTexto, setEstadoPedidoTexto] = useState("");
   const [ultimoPedido, setUltimoPedido] = useState(null);
 
   const crearDatosIniciales = () => ({
@@ -34,6 +35,11 @@ function Home() {
   const [pagaCon, setPagaCon] = useState("");
 
   const totalProductos = carrito.reduce((total, item) => total + item.cantidad, 0);
+
+  const totalPagar = carrito.reduce((total, item) => {
+    const precioNumerico = Number(String(item.precio ?? "").replace(/\D/g, "")) || 0;
+    return total + precioNumerico * (Number(item.cantidad) || 0);
+  }, 0);
 
   const tiempoEstimado = totalProductos <= 2 ? 25 : totalProductos <= 4 ? 35 : 45;
 
@@ -85,13 +91,37 @@ function Home() {
     setCarrito(carrito.filter((item) => item.nombre !== nombre));
   };
 
+  const cancelarUltimoPedido = async () => {
+    if (!ultimoPedido?.id) {
+      return;
+    }
+
+    const pedidoActualizado = {
+      ...ultimoPedido.payload,
+      estado: "cancelado",
+    };
+
+    const resultado = await actualizarPedido(ultimoPedido.id, pedidoActualizado);
+
+    if (resultado?.error) {
+      setPedidoError("No se pudo cancelar el pedido. Intenta nuevamente.");
+      return;
+    }
+
+    setEstadoPedidoTexto("Pedido cancelado correctamente.");
+    setPedidoConfirmado(true);
+    setUltimoPedido((prev) => ({
+      ...prev,
+      payload: pedidoActualizado,
+    }));
+  };
+
   const confirmarPedido = async () => {
     if (carrito.length === 0) {
       return;
     }
 
     setPedidoEnviando(true);
-    setPedidoError("");
 
     try {
       const pedido = construirPayloadPedido({
@@ -106,6 +136,7 @@ function Home() {
       const pedidoId = respuesta?.insertedId || respuesta?.id || "";
 
       setUltimoPedido({ id: pedidoId, payload: pedido });
+      setEstadoPedidoTexto("Pedido confirmado correctamente.");
       setPedidoConfirmado(true);
       setCarrito([]);
       setCheckout(false);
@@ -121,38 +152,6 @@ function Home() {
     }
   };
 
-  const cancelarUltimoPedido = async () => {
-    if (!ultimoPedido?.id) {
-      return;
-    }
-
-    try {
-      const respuesta = await eliminarPedido(ultimoPedido.id);
-
-      if (respuesta && respuesta.error) {
-        console.error(respuesta.error);
-        setPedidoError("No se pudo cancelar el pedido.");
-        return;
-      }
-
-      setUltimoPedido({
-        id: ultimoPedido.id,
-        payload: {
-          ...ultimoPedido.payload,
-          estado: "cancelado",
-        },
-      });
-      setPedidoConfirmado(true);
-      setPedidoError("");
-    } catch (error) {
-      console.error(error);
-      setPedidoError("No se pudo cancelar el pedido.");
-    }
-  };
-
-  const estadoPedidoTexto = ultimoPedido?.payload?.estado === "cancelado"
-    ? "Pedido cancelado correctamente"
-    : "Pedido confirmado correctamente";
 
   return (
     <>
@@ -263,8 +262,11 @@ function Home() {
             )}
 
             <div className="border-top pt-2">
-              <p className="mb-2 text-center">
+              <p className="mb-1 text-center">
                 <strong>Total de productos:</strong> {totalProductos}
+              </p>
+              <p className="mb-3 text-center">
+                <strong>Total a pagar:</strong> ${totalPagar}
               </p>
 
               <button
@@ -424,6 +426,10 @@ function Home() {
 
             <p className="small mb-1">
               <strong>Productos:</strong> {totalProductos}
+            </p>
+
+            <p className="small mb-1">
+              <strong>Total a pagar:</strong> ${totalPagar}
             </p>
 
             <p className="small mb-1">

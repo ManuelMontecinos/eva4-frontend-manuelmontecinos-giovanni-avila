@@ -5,7 +5,6 @@ function VerPedidos() {
   const [pedidos, setPedidos] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
-  const [mensaje, setMensaje] = useState("");
   const [editandoId, setEditandoId] = useState("");
   const [formData, setFormData] = useState({
     cliente: "",
@@ -15,7 +14,6 @@ function VerPedidos() {
     metodoPago: "efectivo",
   });
   const [guardando, setGuardando] = useState(false);
-  const [opError, setOpError] = useState("");
   const [busqueda, setBusqueda] = useState("");
 
   const obtenerTexto = (valor) => {
@@ -68,7 +66,6 @@ function VerPedidos() {
           : pedido.direccion || "",
       metodoPago: pedido.metodoPago || "efectivo",
     });
-    setMensaje("");
   };
 
   const guardarEdicion = async (e, pedido) => {
@@ -96,25 +93,20 @@ function VerPedidos() {
       const respuesta = await actualizarPedido(pedidoId, pedidoActualizado);
 
       if (respuesta && respuesta.error) {
-        const text = typeof respuesta.error === "string" ? respuesta.error : JSON.stringify(respuesta);
-        setOpError(text || "No se pudo actualizar el pedido.");
-        setMensaje("");
-      } else {
-        const pedidoGuardado = respuesta?.datos || pedidoActualizado;
-
-        setPedidos((prev) =>
-          prev.map((item) => {
-            const idActual = item.insertedId || item._id || item.idPedido || item.id || "";
-            return idActual === pedidoId ? { ...item, ...pedidoGuardado } : item;
-          })
-        );
-        setEditandoId("");
-        setMensaje("Pedido actualizado correctamente.");
-        setOpError("");
+        throw new Error(typeof respuesta.error === "string" ? respuesta.error : JSON.stringify(respuesta));
       }
+
+      const pedidoGuardado = respuesta?.datos || pedidoActualizado;
+
+      setPedidos((prev) =>
+        prev.map((item) => {
+          const idActual = item.insertedId || item._id || item.idPedido || item.id || "";
+          return idActual === pedidoId ? { ...item, ...pedidoGuardado } : item;
+        })
+      );
+      setEditandoId("");
     } catch (error) {
-      setOpError("No se pudo actualizar el pedido.");
-      setMensaje("");
+      console.error("No se pudo actualizar el pedido.", error);
     } finally {
       setGuardando(false);
     }
@@ -132,8 +124,7 @@ function VerPedidos() {
 
       if (respuesta && respuesta.error) {
         const text = typeof respuesta.error === "string" ? respuesta.error : JSON.stringify(respuesta);
-        setOpError(text || "No se pudo cancelar el pedido.");
-        setMensaje("");
+        console.error(text || "No se pudo cancelar el pedido.");
         return;
       }
 
@@ -141,12 +132,8 @@ function VerPedidos() {
         const idActual = item.insertedId || item._id || item.idPedido || item.id || "";
         return idActual !== pedidoId;
       }));
-
-      setMensaje("Pedido cancelado correctamente.");
-      setOpError("");
     } catch (error) {
-      setOpError("No se pudo cancelar el pedido.");
-      setMensaje("");
+      console.error("No se pudo cancelar el pedido.", error);
     }
   };
 
@@ -186,18 +173,6 @@ function VerPedidos() {
     <div className="container py-5">
       <h2 className="text-center mb-4">Pedidos realizados</h2>
 
-      {mensaje && (
-        <div className="alert alert-success" role="alert">
-          {mensaje}
-        </div>
-      )}
-
-      {opError && (
-        <div className="alert alert-danger" role="alert">
-          {opError}
-        </div>
-      )}
-
       <div className="mb-4">
         <input
           type="text"
@@ -224,13 +199,14 @@ function VerPedidos() {
         <div className="row">
           {pedidosFiltrados.map((pedido) => {
             const pedidoId = pedido._id || pedido.idPedido || pedido.id || "";
+            const totalPagar = pedido.monto ?? (pedido.items?.reduce((sum, item) => sum + (Number(item.precio) || 0) * (Number(item.cantidad) || 0), 0) || 0);
 
             return (
               <div key={pedidoId} className="col-md-6 col-lg-4 mb-4">
                 <div className="card shadow h-100">
                   <div className="card-body">
                     <h5 className="card-title">Pedido #{pedidoId}</h5>
-                    <p className="small mb-1">
+                    <p className="mb-1">
                       <strong>Cliente:</strong> {obtenerTexto(pedido.cliente) || obtenerTexto(pedido.nombre)}
                     </p>
                     <p>
@@ -243,7 +219,7 @@ function VerPedidos() {
                       <strong>Dirección:</strong> {obtenerTexto(pedido.direccion) || "-"}
                     </p>
                     <p>
-                      <strong>Monto:</strong> ${pedido.monto || 0}
+                      <strong>Total a pagar:</strong> ${totalPagar}
                     </p>
 
                     {pedido.items?.length > 0 && (
