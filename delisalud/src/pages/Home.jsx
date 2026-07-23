@@ -7,7 +7,7 @@ import MenuCards from "../components/MenuCards";
 import MenuAccordion from "../components/MenuAccordion";
 import Testimonials from "../components/Testimonials";
 import Footer from "../components/Footer";
-import { actualizarPedido, construirPayloadPedido, crearPedido } from "../services/pedidosApi";
+import { actualizarPedido, construirPayloadPedido, crearPedido, eliminarPedido } from "../services/pedidosApi";
 
 function Home() {
   const navigate = useNavigate();
@@ -127,14 +127,21 @@ function Home() {
     }
 
     try {
-      const pedidoCancelado = {
-        ...ultimoPedido.payload,
-        estado: "cancelado",
-        fecha: new Date().toISOString().split("T")[0],
-      };
+      const respuesta = await eliminarPedido(ultimoPedido.id);
 
-      await actualizarPedido(ultimoPedido.id, pedidoCancelado);
-      setUltimoPedido({ ...ultimoPedido, payload: pedidoCancelado });
+      if (respuesta && respuesta.error) {
+        console.error(respuesta.error);
+        setPedidoError("No se pudo cancelar el pedido.");
+        return;
+      }
+
+      setUltimoPedido({
+        id: ultimoPedido.id,
+        payload: {
+          ...ultimoPedido.payload,
+          estado: "cancelado",
+        },
+      });
       setPedidoConfirmado(true);
       setPedidoError("");
     } catch (error) {
